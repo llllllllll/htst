@@ -16,7 +16,7 @@ module Htst.Core
 
 -- | A job to run.
 data Job = Job { jobName        :: String
-               , jobDir         :: Maybe FilePath
+               , jobDir         :: FilePath
                , jobCmd         :: IO Int
                , jobShouldMove  :: String -> Bool
                , jobSuccessHook :: IO ()
@@ -27,7 +27,7 @@ data Job = Job { jobName        :: String
 -- | The default settings for a 'Job'.
 defaults :: Job
 defaults = Job { jobName        = "default"
-               , jobDir         = Nothing
+               , jobDir         = "/dev/null"
                , jobCmd         = return 1
                , jobShouldMove  = const True
                , jobSuccessHook = print "success"

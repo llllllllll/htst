@@ -14,7 +14,7 @@ module Htst.Main
     ) where
 
 
-import Control.Arrow ((***))
+import Control.Arrow (second)
 import Data.List (find)
 import Data.Maybe (catMaybes, fromMaybe)
 import System.Console.GetOpt ( ArgOrder(..), OptDescr(..)
@@ -47,14 +47,13 @@ options = [ Option "r" ["run"] (ReqArg Run "job") "Run the given job."
 parseToRun :: [Flag] -> [Job] -> [(Job -> IO (), Job)]
 parseToRun fs js = let ns = map jobName js
                        ks = filter (flip elem ns . snd)
-                            $ catMaybes $ map (\case
-                                                 Run s   -> Just (False, s)
-                                                 Block s -> Just (True, s)
-                                                 _       -> Nothing) fs
-                   in map (resolveRunner *** unsafeResolveJob) ks
+                            $ catMaybes
+                            $ map (\case
+                                     Run s   -> Just (runAsyncJob, s)
+                                     Block s -> Just (runJob, s)
+                                     _       -> Nothing) fs
+                   in map (second unsafeResolveJob) ks
   where
-      resolveRunner True  = runJob
-      resolveRunner False = runAsyncJob
       unsafeResolveJob n  = fromMaybe e $ find ((==) n . jobName) js
       e                   = error "parseToRun: jobName should not be Nothing"
 

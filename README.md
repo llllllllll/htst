@@ -20,8 +20,7 @@ A `Job` is a specification for something to run.
 You can configure:
 
 1. `jobName :: String`: The name to use when looking it up.
-1. `jobDir :: Maybe FilePath`: The place to move the test code from. If this is
-   `Nothing`, the test is done in place.
+1. `jobDir :: FilePath`: The place to move the test code from.
 1. `jobCmd :: IO Int`: The function to run to execute the test.
 1. `jobShouldMove :: String -> Bool`: The function to filter the contents of the
    project.
@@ -39,7 +38,7 @@ import Htst (defaultMain, runShell, Job(..), runShell)
 -- | My jobs
 jobs :: [Job]
 jobs = [ Job { jobName        = "zipline"
-             , jobDir         = Just "/home/joejev/quantopian/zipline"
+             , jobDir         = "/home/joejev/quantopian/zipline"
              , jobCmd         = runShell "nosetests"
              , jobShouldMove  = \s -> (take 3 $ reverse s) == "yp."
              , jobSuccessHook = print "success!"

@@ -58,12 +58,11 @@ runAsyncJob = void . forkIO . runJob
 
 
 runJob :: Job -> IO ()
-runJob j = (case jobDir j of
-               Nothing -> bracketCWD d
-               Just d  -> \f -> cpR (jobShouldMove j) d
-                          >> bracketCWD (underTmp d)
-                                 (f >> removeDirectoryRecursive (underTmp d)))
-                          (runCmdAndHook j)
+runJob j = let d = jobDir j
+           in cpR (jobShouldMove j) d
+                  >> bracketCWD (underTmp d)
+                         (runCmdAndHook j
+                          >> removeDirectoryRecursive (underTmp d))
 
 bracketCWD :: FilePath -> IO a -> IO a
 bracketCWD p a = getCurrentDirectory

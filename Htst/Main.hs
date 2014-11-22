@@ -15,6 +15,7 @@ module Htst.Main
 
 
 import Control.Arrow (second)
+import Control.Monad (when)
 import Data.List (find)
 import Data.Maybe (catMaybes, fromMaybe)
 import System.Console.GetOpt ( ArgOrder(..), OptDescr(..)
@@ -22,9 +23,12 @@ import System.Console.GetOpt ( ArgOrder(..), OptDescr(..)
                              )
 import System.Environment (getArgs, getProgName)
 
-import Htst.Core (Job(..))
+import Htst.Core (Job(..), newJobID)
 import Htst.Runner (runAsyncJob, runJob)
 
+
+versionStr :: String
+versionStr = "htst 0.1.0.0"
 
 
 -- Command line flags.
@@ -32,6 +36,7 @@ data Flag = Run String
           | Block String
           | Help
           | Version
+            deriving (Eq)
 
 
 options :: [OptDescr Flag]
@@ -43,26 +48,47 @@ options = [ Option "r" ["run"] (ReqArg Run "job") "Run the given job."
           ]
 
 
--- | Parses the 'Flag's and returns the runners and Jobs to run.
-parseToRun :: [Flag] -> [Job] -> [(Job -> IO (), Job)]
-parseToRun fs js = let ns = map jobName js
-                       ks = filter (flip elem ns . snd)
-                            $ catMaybes
-                            $ map (\case
-                                     Run s   -> Just (runAsyncJob, s)
-                                     Block s -> Just (runJob, s)
-                                     _       -> Nothing) fs
-                   in map (second unsafeResolveJob) ks
+-- | Parses the 'Flag's and returns IO actions representing the jobs to run.
+parseToRun :: [Flag] -> [Job] -> [IO ()]
+parseToRun fs js = map ffunc $ catMaybes $ map (\case
+                                                  Run s   -> Just (async, s)
+                                                  Block s -> Just (blocking, s)
+                                                  _       -> Nothing) fs
   where
+      ns                  = map jobName js
+      ffunc (a, b)        = if b `elem` ns
+                              then a $ unsafeResolveJob b
+                              else putStrLn $ b ++ " is not a known job"
       unsafeResolveJob n  = fromMaybe e $ find ((==) n . jobName) js
       e                   = error "parseToRun: jobName should not be Nothing"
+      newIDPrint          = newJobID
+                            >>= \jid -> (putStrLn . show) jid
+                            >> return jid
+      async    j          = newIDPrint >>= \jid -> runAsyncJob jid j
+      blocking j          = newIDPrint >>= \jid -> runJob      jid j
 
 
+
+-- | Parse the command line args based on the jobs provided.
 handleOpts :: [Job] -> String -> ([Flag],[String],[String]) -> IO ()
 handleOpts _ argv0 ([], _, _)  = putStrLn $ "Usage:" ++ usageInfo "" options
-handleOpts js argv0 (fs, _, _) = mapM_ (\(a, b) -> a b) $ parseToRun fs js
+handleOpts js argv0 (fs, _, _) = doHelp fs
+                                 >> doVersion fs
+                                 >> mapM_ id (parseToRun fs js)
 
 
+-- | Print the help info if the 'Help' flag was passed.
+doHelp :: [Flag] -> IO ()
+doHelp fs = when (Help `elem` fs) $ putStrLn $ "Usage:" ++ usageInfo "" options
+
+
+-- | Print the version info if the 'Version' flag was passed.
+doVersion :: [Flag] -> IO ()
+doVersion fs = when (Version `elem` fs) $ putStrLn $ versionStr
+
+
+-- | The default main for htst. This provides the argparsing and
+-- spins of jobs as needed.
 defaultMain :: [Job] -> IO ()
 defaultMain js = getProgName
                  >>= \p -> getArgs

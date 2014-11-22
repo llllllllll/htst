@@ -1,17 +1,15 @@
-import Htst (defaultMain, runShell, Job(..), runShell)
+import Htst (defaultMain, Job(..), defaults, nosetests)
 
 
--- | My jobs
-jobs :: [Job]
-jobs = [ Job { jobName        = "zipline"
-             , jobDir         = "/home/joejev/quantopian/zipline"
-             , jobCmd         = runShell "nosetests"
-             , jobShouldMove  = \s -> (take 3 $ reverse s) == "yp."
-             , jobSuccessHook = print "success!"
-             , jobFailureHook = const $ print "failure!"
-             }
-       ]
+-- | Zipline job.
+zipline :: Job
+zipline = defaults
+          { jobName        = "zipline"
+          , jobDir         = "/home/joejev/quantopian/qexec/zipline_repo/"
+          , jobCmd         = nosetests $ Just "tests/utils/test_events.py"
+          , jobShouldMove  = \s -> (take 4 $ reverse s) /= "cyp."
+          }
 
 
 main :: IO ()
-main = defaultMain jobs
+main = defaultMain [zipline]

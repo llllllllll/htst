@@ -8,6 +8,7 @@
 -- Portability : GHC
 --
 -- Manages running jobs.
+{-# LANGUAGE LambdaCase #-}
 module Htst.Runner
     ( runJob       -- :: Job -> IO ()
     , runAsyncJob  -- :: Job -> IO ()
@@ -29,7 +30,7 @@ import System.FilePath.Find ( find, always, filePath
                             )
 import System.FilePath.Posix ((</>))
 
-import Htst.Core (Job(..))
+import Htst.Core (Job(..), JobResult(..), JobID(..), newJobID)
 
 
 tmpDir :: FilePath
@@ -38,7 +39,7 @@ tmpDir = "/tmp/htst/"
 
 -- | Moves an absolute filepath under the tmpdir.
 underTmp :: FilePath -> FilePath
-underTmp p = tmpDir </> drop 1 p
+underTmp p = tmpDir </> drop 1 p  -- drop the root '/'
 
 
 -- | Recursive copy of a directory into the tmpDir.
@@ -53,17 +54,23 @@ cpR pred d = find always applyPred d >>= mapM_ cp
       applyPred = pred <$> filePath ||? (== Directory) <$> fileType
 
 
-runAsyncJob :: Job -> IO ()
-runAsyncJob = void . forkIO . runJob
+-- | Runs an asynchronous 'Job'
+runAsyncJob :: JobID -> Job -> IO ()
+runAsyncJob jid j = void . forkIO $ runJob jid j
 
 
-runJob :: Job -> IO ()
-runJob j = let d = jobDir j
-           in cpR (jobShouldMove j) d
-                  >> bracketCWD (underTmp d)
-                         (runCmdAndHook j
-                          >> removeDirectoryRecursive (underTmp d))
+-- | Executes a 'Job'. This moves the jobDir based on the moving rules
+-- in the 'Job', executes the command, and then passes the result to the
+-- proper hook.
+runJob :: JobID -> Job -> IO ()
+runJob jid j = let d = jobDir j
+               in cpR (jobShouldMove j) d
+                      >> bracketCWD (underTmp d)
+                             (runCmdAndHook jid j
+                              >> removeDirectoryRecursive (underTmp d))
 
+
+-- | cd into p, then execute a, then cd back into the cwd.
 bracketCWD :: FilePath -> IO a -> IO a
 bracketCWD p a = getCurrentDirectory
                  >>= \cwd -> setCurrentDirectory p
@@ -72,8 +79,9 @@ bracketCWD p a = getCurrentDirectory
                  >> return r
 
 
-runCmdAndHook :: Job -> IO ()
-runCmdAndHook j = jobCmd j
-                  >>= \s -> if s == 0
-                              then jobSuccessHook j
-                              else jobFailureHook j s
+-- | Execute the jobCmd and then call the proper hook.
+runCmdAndHook :: JobID -> Job -> IO ()
+runCmdAndHook jid j = jobCmd j jid
+                      >>= \case
+                            JobFailure rs -> jobFailureHook j jid rs
+                            JobSuccess    -> jobSuccessHook j jid

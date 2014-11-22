@@ -12,18 +12,56 @@
 module Htst
     ( defaultMain  -- :: [Job] -> IO ()
     , Job(..)
-    , runShell     -- :: String -> IO Int
+    , nosetests    -- :: Maybe FilePath -> JobID -> IO JobResult
+    , defaults     -- :: Job
     ) where
 
 
+import Control.Applicative ((<$>))
+import Control.Monad (liftM)
+import Data.List (lines)
+import Data.Maybe (catMaybes)
+import Data.Monoid (mconcat)
 import System.Exit (ExitCode(..))
-import System.Process (system)
+import System.Directory (getCurrentDirectory, findExecutable)
+import System.FilePath.Find ( find, fileName, extension
+                            , (&&?), fileType, FileType(..)
+                            )
+import System.Process (readProcessWithExitCode)
+import Text.Read (readMaybe)
 
-import Htst.Core (Job(..))
+import Htst.Core (Job(..), JobID(..), JobResult(..), defaults)
 import Htst.Main (defaultMain)
 
 
-runShell :: String -> IO Int
-runShell c = system c >>= \case
-                            ExitSuccess   -> return 0
-                            ExitFailure n -> return n
+-- | Runs the python testing program "nostests".
+-- If FP is pathed, it will passed as the first argument to nosetests.
+nosetests :: Maybe FilePath -> JobID -> IO JobResult
+nosetests fp _ = findExecutable "nosetests"
+                 >>= \case
+                       Nothing -> return $ JobFailure Nothing
+                       Just n  -> readProcessWithExitCode n (catMaybes [fp]) ""
+                                  >>= \case
+                                          (ExitSuccess, _, _)     ->
+                                              return JobSuccess
+                                          (ExitFailure _, _, err) ->
+                                              return $ readFailure
+                                                         . reverse . lines $ err
+  where
+      readFailure []    = JobFailure Nothing
+      readFailure (c:_) = JobFailure
+                          $ readMaybe (drop 17 . reverse . drop 1 . reverse $ c)
+
+
+-- | Parallel nosetests
+parNose :: JobID -> Job -> IO JobResult
+parNose jid j = getCurrentDirectory
+                >>= find testDirs testFls
+                >>= mapM (\f -> nosetests (Just f) jid)
+                >>= return . mconcat
+  where
+      testDirs = ((==) Directory) <$> fileType
+                 &&? ((==) "test" . take 4) <$> fileName
+      testFls  = ((==) RegularFile) <$> fileType
+                 &&? ((==) "test" . take 4) <$> fileName
+                 &&? ((==) ".py") <$> extension

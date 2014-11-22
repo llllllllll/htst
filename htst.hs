@@ -5,8 +5,8 @@ import Htst (defaultMain, Job(..), defaults, nosetests)
 zipline :: Job
 zipline = defaults
           { jobName        = "zipline"
-          , jobDir         = "/home/joejev/quantopian/qexec/zipline_repo/"
-          , jobCmd         = nosetests $ Just "tests/utils/test_events.py"
+          , jobDir         = "/home/joejev/quantopian/zipline"
+          , jobCmd         = nosetests Nothing
           , jobShouldMove  = \s -> (take 4 $ reverse s) /= "cyp."
           }
 

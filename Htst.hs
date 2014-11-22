@@ -18,6 +18,7 @@ module Htst
 
 
 import Control.Applicative ((<$>))
+import Control.Concurrent (runInBoundThread)
 import Control.Monad (liftM)
 import Data.List (lines)
 import Data.Maybe (catMaybes)
@@ -57,7 +58,7 @@ nosetests fp _ = findExecutable "nosetests"
 parNose :: JobID -> Job -> IO JobResult
 parNose jid j = getCurrentDirectory
                 >>= find testDirs testFls
-                >>= mapM (\f -> nosetests (Just f) jid)
+                >>= mapM (\f -> runInBoundThread $ nosetests (Just f) jid)
                 >>= return . mconcat
   where
       testDirs = ((==) Directory) <$> fileType

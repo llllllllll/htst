@@ -1,13 +1,17 @@
 import Htst (defaultMain, Job(..), defaults, parNose)
 
 
+noByteCode :: FilePath -> Bool
+noByteCode = (/=) "cyp." . take 4 . reverse
+
+
 -- | Zipline job.
 zipline :: Job
 zipline = defaults
           { jobName        = "zipline"
-          , jobDir         = "/home/joejev/quantopian/qexec/zipline_repo"
+          , jobDir         = "/home/joejev/quantopian/zipline/"
           , jobCmd         = parNose
-          , jobShouldMove  = \s -> (take 4 $ reverse s) /= "cyp."
+          , jobShouldMove  = noByteCode
           }
 
 

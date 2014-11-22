@@ -20,6 +20,7 @@ module Htst
 
 import Control.Applicative ((<$>))
 import Control.Concurrent (runInBoundThread)
+import Control.Concurrent.Async (mapConcurrently)
 import Control.Monad (liftM)
 import Data.List (lines)
 import Data.Maybe (catMaybes)
@@ -59,7 +60,7 @@ nosetests fp _ = findExecutable "nosetests"
 parNose :: JobID -> IO JobResult
 parNose jid = getCurrentDirectory
               >>= find always testFls
-              >>= mapM (\f -> runInBoundThread $ nosetests (Just f) jid)
+              >>= mapConcurrently (\f -> nosetests (Just f) jid)
               >>= return . mconcat
   where
       testFls  = ((==) RegularFile) <$> fileType

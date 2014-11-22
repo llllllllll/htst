@@ -31,7 +31,7 @@ data JobResult = JobSuccess
 
 
 instance Monoid JobResult where
-    mempty                                = JobFailure Nothing
+    mempty                                = JobSuccess
     mappend JobSuccess JobSuccess         = JobSuccess
     mappend JobSuccess (JobFailure n)     = JobFailure n
     mappend (JobFailure n) JobSuccess     = JobFailure n

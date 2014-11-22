@@ -13,6 +13,7 @@ module Htst
     ( defaultMain  -- :: [Job] -> IO ()
     , Job(..)
     , nosetests    -- :: Maybe FilePath -> JobID -> IO JobResult
+    , parNose      -- :: JobID -> IO JobResult
     , defaults     -- :: Job
     ) where
 
@@ -25,7 +26,7 @@ import Data.Maybe (catMaybes)
 import Data.Monoid (mconcat)
 import System.Exit (ExitCode(..))
 import System.Directory (getCurrentDirectory, findExecutable)
-import System.FilePath.Find ( find, fileName, extension
+import System.FilePath.Find ( find, fileName, extension, always
                             , (&&?), fileType, FileType(..)
                             )
 import System.Process (readProcessWithExitCode)
@@ -55,14 +56,12 @@ nosetests fp _ = findExecutable "nosetests"
 
 
 -- | Parallel nosetests
-parNose :: JobID -> Job -> IO JobResult
-parNose jid j = getCurrentDirectory
-                >>= find testDirs testFls
-                >>= mapM (\f -> runInBoundThread $ nosetests (Just f) jid)
-                >>= return . mconcat
+parNose :: JobID -> IO JobResult
+parNose jid = getCurrentDirectory
+              >>= find always testFls
+              >>= mapM (\f -> runInBoundThread $ nosetests (Just f) jid)
+              >>= return . mconcat
   where
-      testDirs = ((==) Directory) <$> fileType
-                 &&? ((==) "test" . take 4) <$> fileName
       testFls  = ((==) RegularFile) <$> fileType
                  &&? ((==) "test" . take 4) <$> fileName
                  &&? ((==) ".py") <$> extension

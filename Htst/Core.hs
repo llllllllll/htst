@@ -17,8 +17,9 @@ module Htst.Core
     ) where
 
 
-import Data.Monoid
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative ((<$>))
+import Control.Monad (liftM2)
+import Data.Monoid (Monoid(..))
 import Data.UUID (UUID, toString)
 import Data.UUID.V4 (nextRandom)
 
@@ -26,6 +27,7 @@ import Data.UUID.V4 (nextRandom)
 -- | The results returned from running a job.
 data JobResult = JobSuccess
                | JobFailure (Maybe Int)
+                 deriving (Show)
 
 
 instance Monoid JobResult where
@@ -33,7 +35,7 @@ instance Monoid JobResult where
     mappend JobSuccess JobSuccess         = JobSuccess
     mappend JobSuccess (JobFailure n)     = JobFailure n
     mappend (JobFailure n) JobSuccess     = JobFailure n
-    mappend (JobFailure n) (JobFailure m) = JobFailure ((+) <$> n <*> m)
+    mappend (JobFailure n) (JobFailure m) = JobFailure (liftM2 (+) n m)
 
 
 -- | Each job is run with a unique identifier.

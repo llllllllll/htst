@@ -30,6 +30,9 @@ data JobResult = JobSuccess
                  deriving (Show)
 
 
+-- | 'Monoid' instance where failures sum the test failure count,
+-- and failures replace successes. An empty 'JobResult' has no failures
+-- so it is a 'JobSuccess'.
 instance Monoid JobResult where
     mempty                                = JobSuccess
     mappend JobSuccess JobSuccess         = JobSuccess
@@ -38,13 +41,17 @@ instance Monoid JobResult where
     mappend (JobFailure n) (JobFailure m) = JobFailure (liftM2 (+) n m)
 
 
--- | Each job is run with a unique identifier.
+-- | Each job is run with a unique identifier. This is an ADT so that we can
+-- change the underlying representation later if we choose. Nothing should
+-- depend on this being a wrapper around UUID.
 newtype JobID = JobID UUID
+
 
 instance Show JobID where
     show (JobID n) = toString n
 
 
+-- | Generate a new 'JobID' to represent a test run.
 newJobID :: IO JobID
 newJobID = JobID <$> nextRandom
 
